@@ -7,11 +7,24 @@
     <cargoProject FILE="$PROJECT_DIR$/Cargo.toml" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="5db2449e-21a7-4bb0-9066-049e1b8002ff" name="Changes" comment="" />
+    <list default="true" id="5db2449e-21a7-4bb0-9066-049e1b8002ff" name="Changes" comment="">
+      <change afterPath="$PROJECT_DIR$/src/constants.rs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/errors.rs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/user_data.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/lib.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/lib.rs" afterDir="false" />
+    </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
     <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="FileTemplateManagerImpl">
+    <option name="RECENT_TEMPLATES">
+      <list>
+        <option value="Rust File" />
+      </list>
+    </option>
   </component>
   <component name="Git.Settings">
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
@@ -19,9 +32,9 @@
   <component name="MacroExpansionManager">
     <option name="directoryName" value="qjzdjsjv" />
   </component>
-  <component name="ProjectColorInfo"><![CDATA[{
-  "associatedIndex": 8
-}]]></component>
+  <component name="ProjectColorInfo">{
+  &quot;associatedIndex&quot;: 8
+}</component>
   <component name="ProjectId" id="2m3oOtIR3OBwL5Ojtey4z2QB2ef" />
   <component name="ProjectViewState">
     <option name="hideEmptyMiddlePackages" value="true" />
@@ -33,9 +46,12 @@
     "RunOnceActivity.rust.reset.selective.auto.import": "true",
     "git-widget-placeholder": "main",
     "last_opened_file_path": "/home/xpan/Documents/cs/stylus_bitsave/bitsave_arb_stylus",
+    "node.js.detected.package.eslint": "true",
+    "node.js.selected.package.eslint": "(autodetect)",
     "nodejs_package_manager_path": "npm",
     "org.rust.cargo.project.model.PROJECT_DISCOVERY": "true",
-    "org.rust.first.attach.projects": "true"
+    "org.rust.first.attach.projects": "true",
+    "settings.editor.selected.configurable": "language.rust.cargo.check"
   }
 }]]></component>
   <component name="RustProjectSettings">
@@ -50,6 +66,7 @@
       <option name="presentableId" value="Default" />
       <updated>1726314592195</updated>
       <workItem from="1726314597100" duration="185000" />
+      <workItem from="1726314797219" duration="11482000" />
     </task>
     <servers />
   </component>
