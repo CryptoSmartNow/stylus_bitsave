@@ -22,7 +22,8 @@ use ethers::prelude::Call;
 use stylus_sdk::call::call;
 /// Import user library and other fns
 use user_data::UserData;
-use crate::errors::{BResult, BitsaveErrors, GeneralError, InvalidPrice, UserNotExist};
+use crate::constants::{BS_SAVING_FEE, MIN_BS_JOIN_FEE};
+use crate::errors::{BResult, BitsaveErrors, GeneralError, InvalidPrice, NotSupported, UserNotExist};
 
 mod user_data;
 mod errors;
@@ -32,18 +33,24 @@ mod constants;
 pub type RResult<T, E = Vec<u8>> = core::result::Result<T, E>;
 
 // Define some persistent storage using the Solidity ABI.
-// `Counter` will be the entrypoint.
+// `Bitsave` will be the entrypoint.
 sol_storage! {
     #[entrypoint]
     pub struct Bitsave {
+        // Maintenance details
         bool initialized;
+        address master_address;
+        address collector_address;
 
+        // SWAP Details
         address router_address;
         address stablecoin_address;
 
-        uint256 number;
+        // collection details
+        uint256 vault_state;
+        uint256 total_value_locked;
+
         uint256 user_count;
-        uint256 token_pool_balance;
         uint256 accumulated_pool_balance;
         uint256 general_fund;
         mapping(address => UserData) users_mapping;
@@ -70,9 +77,66 @@ sol_interface! {
 #[public]
 impl Bitsave {
 
+    fn require_master(&self, sender: Address) -> RResult<()> {
+        if sender != self.master_address.get() {
+                panic!(Err(
+                    BitsaveErrors::GeneralError(GeneralError {
+                        msg: "Not authorized".to_string()
+                    }).into()
+                ))
+            }
+        Ok(())
+    }
+
+    /// Initialize data
+    pub fn init(&mut self) {
+        if !self.initialized.get() {
+            self.master_address.set(msg::sender());
+            self.collector_address.set(msg::sender());
+            self.general_fund.set(
+                U256::from(0)
+            );
+            self.initialized.set(true);
+        }
+    }
+
+    pub fn change_data(&mut self, router_address: Option<Address>, stablecoin_address: Option<Address>, collector_address: Option<Address>) {
+        self.require_master(msg::sender())?;
+
+        if let Some(_router_address) = router_address {
+            self.router_address.set(_router_address);
+        }
+        if let Some(_stablecoin_address) = stablecoin_address {
+            self.stablecoin_address.set(_stablecoin_address);
+        }
+        if let Some(_collector_address) = collector_address {
+            self.collector_address.set(_collector_address);
+        }
+    }
+
+    pub fn update_vault(&mut self, v_state: Option<U256>, total_locked: Option<U256>) {
+        self.require_master(msg::sender())?;
+
+        if let Some(_vault_state) = v_state {
+            self.vault_state.set(_vault_state);
+        }
+        if let Some(_total_locked) = total_locked {
+            self.total_value_locked.set(_total_locked);
+        }
+    }
+
+    /// Pool manager
+    fn update_pool_details(&mut self) {
+    }
+
     /// Metric data
     pub fn get_bitsave_user_count(&self) -> U256 {
         self.user_count.get()
+    }
+
+    /// My gathered points
+    pub fn get_user_points(&self) -> BResult<U256> {
+        Ok(self.users_mapping.get(msg::sender()).total_point.get())
     }
 
     /// Join the space
@@ -119,17 +183,34 @@ impl Bitsave {
         let fetched_user = self.users_mapping.get(msg::sender());
         if !fetched_user.user_exists.get() {
             println!("User not found");
-            return Err(BitsaveErrors::UserNotExist(UserNotExist {}).into());
+            panic!(Err(BitsaveErrors::UserNotExist(UserNotExist {})));
         }
 
-        let amount_of_saving = msg::value();
+        let amount_received = msg::value();
+        let saving_fee = U256::from(BS_SAVING_FEE);
+        if amount_received < saving_fee {
+            panic!(
+                Err(
+                    BitsaveErrors::InvalidPrice(InvalidPrice {})
+                )
+            )
+        }
+
+        let amount_of_saving = amount_received - saving_fee;
+        // Update pool
+
+
+        let mut token_id = Address::ZERO; // todo: fix in token address
 
         // TODO: add safe mode fn;
         if use_safe_mode {
-
+            panic!(
+                Err(
+                    BitsaveErrors::NotSupported(NotSupported {}).into()
+                )
+            )
         }
 
-        let token_id = Address::ZERO; // todo: fix in token address
 
         // user setter
         let mut user_updater = self.users_mapping.setter(msg::sender());
@@ -140,10 +221,12 @@ impl Bitsave {
             maturity_time,
             penalty_perc,
             use_safe_mode,
+            self.vault_state.get(),
+            self.total_value_locked.get()
         );
 
         if let Err(res_err) = res {
-            return Err(res_err.into());
+            panic!(Err(res_err.into()));
         }
 
         Ok(())
@@ -155,7 +238,7 @@ impl Bitsave {
         // fetch user's data
         let fetched_user = self.users_mapping.get(msg::sender());
         if !fetched_user.user_exists.get() {
-            return Err("User doesn't exist".into());
+            panic!(Err("User doesn't exist"));
         }
 
         let amount_to_add = msg::value();
@@ -163,7 +246,13 @@ impl Bitsave {
 
         // user setter
         let mut user_updater = self.users_mapping.setter(msg::sender());
-        user_updater.increment_saving_data(name_of_saving, amount_to_add, token_id)?;
+        user_updater.increment_saving_data(
+            name_of_saving,
+            amount_to_add,
+            token_id,
+            self.vault_state.get(),
+            self.total_value_locked.get()
+        )?;
         Ok(())
     }
 

@@ -1,5 +1,7 @@
+use std::ops::Add;
 use alloy_primitives::{Address, U256, U8};
 use stylus_sdk::{block, stylus_proc::sol_storage};
+use crate::constants::{DIVISOR, HUNDRED, MAX_SUPPLY, TOTAL_SUPPLY, YEARS_IN_SECS};
 use crate::errors::{BitsaveErrors, GeneralError};
 use crate::RResult;
 
@@ -12,6 +14,7 @@ sol_storage! {
         uint8 savings_count;
         mapping(string => SavingData) savings_map;
         string[] savings_names;
+        uint256 total_point;
     }
 
     pub struct SavingData {
@@ -33,6 +36,7 @@ impl UserData {
         self.user_exists.set(true);
         self.user_id.set(user_id);
         self.user_name.set_str(user_name);
+        self.total_point.set(U256::from(0));
         self.user_exists.get()
     }
 
@@ -42,8 +46,19 @@ impl UserData {
 
     /// TODO: bitsave interest calculator:
     /// Uses bitsave formulae; to be integrated through the bitsave's token
-    fn calculate_new_interest(&self, amount: U256) -> U256 {
-        amount * U256::from(1) / U256::from(100)
+    fn calculate_new_interest(
+        &self,
+        amount: U256,
+        end_time: U256,
+        // internal data
+        vault_state: U256,
+        total_value_locked: U256
+    ) -> U256 {
+        amount * U256::from(1) / U256::from(100);
+        let crp = ((TOTAL_SUPPLY - vault_state) / vault_state) * HUNDRED;
+        let bs_rate = MAX_SUPPLY / (crp * total_value_locked);
+        let years_taken = (end_time - U256::from(block::timestamp())) / YEARS_IN_SECS;
+        ((amount * bs_rate * years_taken) / (HUNDRED * DIVISOR))
     }
 
     fn calculate_balance_from_penalty(amount: U256, penalty_perc: U8) -> U256 {
@@ -59,6 +74,8 @@ impl UserData {
         maturity_time: U256,
         penalty_perc: u8,
         use_safe_mode: bool,
+        vault_state: U256,
+        total_value_locked: U256
     ) -> RResult<()> {
         let fetched_saving = self.savings_map.get(name_of_saving.clone());
 
@@ -70,13 +87,22 @@ impl UserData {
         };
 
         let mut new_saving = self.savings_map.setter(name_of_saving);
+
+        let new_interest = self.calculate_new_interest(
+            amount_of_saving,
+            maturity_time,
+            vault_state,
+            total_value_locked
+        );
+        self.total_point.add(new_interest);
+
         // update saving data
         new_saving.is_safe_mode.set(use_safe_mode);
         new_saving.is_valid.set(true);
         new_saving.token_id.set(token_id);
         new_saving.maturity_time.set(maturity_time);
         new_saving.start_time.set(U256::from(block::timestamp()));
-        new_saving.interest_accumulated.set(U256::from(0));
+        new_saving.interest_accumulated.set(new_interest);
         new_saving.amount.set(amount_of_saving);
         new_saving.penalty_perc.set(U8::from(penalty_perc));
 
@@ -88,6 +114,8 @@ impl UserData {
         name_of_saving: String,
         new_amount: U256,
         token_id: Address,
+        vault_state: U256,
+        total_value_locked: U256
     ) -> Result<(), Vec<u8>> {
         let saving_data = self.savings_map.get(name_of_saving.clone());
         if !saving_data.is_valid.get() {
@@ -103,7 +131,13 @@ impl UserData {
         let old_amount = saving_data.amount.get();
 
         // saving is valid, increment the saving data
-        let new_interest = self.calculate_new_interest(new_amount);
+        let new_interest = self.calculate_new_interest(
+            new_amount,
+            saving_data.maturity_time.get(),
+            vault_state,
+            total_value_locked
+        );
+        self.total_point.add(new_interest);
 
         let mut saving_updater = self.savings_map.setter(name_of_saving);
 

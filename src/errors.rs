@@ -6,6 +6,7 @@ sol! {
     error UserNotExist();
     error InvalidPrice();
     error GeneralError(string msg);
+    error NotSupported();
 }
 
 pub enum BitsaveErrors {
@@ -13,6 +14,7 @@ pub enum BitsaveErrors {
     GeneralError(GeneralError),
     FromUtf8Error(FromUtf8Error),
     InvalidPrice(InvalidPrice),
+    NotSupported(NotSupported)
 }
 
 impl From<BitsaveErrors> for Vec<u8> {
@@ -22,6 +24,7 @@ impl From<BitsaveErrors> for Vec<u8> {
             BitsaveErrors::UserNotExist(err) => err.encode(),
             BitsaveErrors::GeneralError(err) => err.encode(),
             BitsaveErrors::FromUtf8Error(err) => err.into_bytes(),
+            BitsaveErrors::NotSupported(err) => err.encode(),
         }
     }
 }
