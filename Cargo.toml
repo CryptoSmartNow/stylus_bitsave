@@ -1,12 +1,12 @@
 [package]
-name = "stylus-hello-world"
-version = "0.1.9"
+name = "Bitsave"
+version = "0.1.0"
 edition = "2021"
 license = "MIT OR Apache-2.0"
-homepage = "https://github.com/OffchainLabs/stylus-hello-world"
-repository = "https://github.com/OffchainLabs/stylus-hello-world"
-keywords = ["arbitrum", "ethereum", "stylus", "alloy"]
-description = "Stylus hello world example"
+homepage = "git@github.com:CryptoSmartNow/stylus_bitsave.git"
+repository = "git@github.com:CryptoSmartNow/stylus_bitsave.git"
+keywords = ["arbitrum", "ethereum", "savefi", "bitsave"]
+description = "Bitsave smart contract"
 
 [dependencies]
 alloy-primitives = "=0.7.6"
@@ -38,3 +38,8 @@ strip = true
 lto = true
 panic = "abort"
 opt-level = "s"
+debug = false            # no debug data
+rpath = false            # no run-time search path
+debug-assertions = false # prune debug assertions
+incremental = false      # no incremental builds
+

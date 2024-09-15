@@ -3,6 +3,21 @@
 version = 3
 
 [[package]]
+name = "Bitsave"
+version = "0.1.0"
+dependencies = [
+ "alloy-primitives",
+ "alloy-sol-types",
+ "dotenv",
+ "ethers",
+ "eyre",
+ "hex",
+ "mini-alloc 0.4.2",
+ "stylus-sdk",
+ "tokio",
+]
+
+[[package]]
 name = "Inflector"
 version = "0.11.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3232,21 +3247,6 @@ dependencies = [
  "quote",
  "rustversion",
  "syn 2.0.50",
-]
-
-[[package]]
-name = "stylus-hello-world"
-version = "0.1.9"
-dependencies = [
- "alloy-primitives",
- "alloy-sol-types",
- "dotenv",
- "ethers",
- "eyre",
- "hex",
- "mini-alloc 0.4.2",
- "stylus-sdk",
- "tokio",
 ]
 
 [[package]]

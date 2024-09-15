@@ -44,7 +44,7 @@ impl UserData {
         self.user_id.get()
     }
 
-    /// TODO: bitsave interest calculator:
+    /// bitsave interest calculator:
     /// Uses bitsave formulae; to be integrated through the bitsave's token
     fn calculate_new_interest(
         &self,
@@ -54,11 +54,19 @@ impl UserData {
         vault_state: U256,
         total_value_locked: U256
     ) -> U256 {
+
+        let total_supply: U256 = U256::from(TOTAL_SUPPLY);
+        let max_supply: U256 = U256::from(MAX_SUPPLY);
+        let years_in_second: U256 = U256::from(YEARS_IN_SECS);
+        let hundred: U256 = U256::from(HUNDRED);
+        let divisor: U256 = U256::from(DIVISOR);
+
+
         amount * U256::from(1) / U256::from(100);
-        let crp = ((TOTAL_SUPPLY - vault_state) / vault_state) * HUNDRED;
-        let bs_rate = MAX_SUPPLY / (crp * total_value_locked);
-        let years_taken = (end_time - U256::from(block::timestamp())) / YEARS_IN_SECS;
-        ((amount * bs_rate * years_taken) / (HUNDRED * DIVISOR))
+        let crp = ((total_supply - vault_state) / vault_state) * hundred;
+        let bs_rate = max_supply / (crp * total_value_locked);
+        let years_taken = (end_time - U256::from(block::timestamp())) / years_in_second;
+        ((amount * bs_rate * years_taken) / (hundred * divisor))
     }
 
     fn calculate_balance_from_penalty(amount: U256, penalty_perc: U8) -> U256 {
@@ -86,14 +94,15 @@ impl UserData {
             }).into());
         };
 
-        let mut new_saving = self.savings_map.setter(name_of_saving);
-
         let new_interest = self.calculate_new_interest(
             amount_of_saving,
             maturity_time,
             vault_state,
             total_value_locked
         );
+
+        let mut new_saving = self.savings_map.setter(name_of_saving);
+
         self.total_point.add(new_interest);
 
         // update saving data
