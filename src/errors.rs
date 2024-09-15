@@ -1,30 +1,36 @@
-use alloy_sol_types::{sol, SolError};
+use alloy_sol_types::sol;
 use std::string::FromUtf8Error;
 use stylus_sdk::call::MethodError;
 
 sol! {
-    error UserNotExist();
+    error InvalidUser();
     error InvalidPrice();
     error GeneralError(string msg);
+    error InvalidCall();
     error NotSupported();
+    error InvalidSaving();
 }
 
 pub enum BitsaveErrors {
-    UserNotExist(UserNotExist),
+    InvalidUser(InvalidUser),
     GeneralError(GeneralError),
+    InvalidCall(InvalidCall),
     FromUtf8Error(FromUtf8Error),
     InvalidPrice(InvalidPrice),
-    NotSupported(NotSupported)
+    InvalidSaving(InvalidSaving),
+    NotSupported(NotSupported),
 }
 
 impl From<BitsaveErrors> for Vec<u8> {
     fn from(val: BitsaveErrors) -> Self {
         match val {
             BitsaveErrors::InvalidPrice(err) => err.encode(),
-            BitsaveErrors::UserNotExist(err) => err.encode(),
+            BitsaveErrors::InvalidUser(err) => err.encode(),
             BitsaveErrors::GeneralError(err) => err.encode(),
             BitsaveErrors::FromUtf8Error(err) => err.into_bytes(),
             BitsaveErrors::NotSupported(err) => err.encode(),
+            BitsaveErrors::InvalidCall(err) => err.encode(),
+            BitsaveErrors::InvalidSaving(err) => err.encode(),
         }
     }
 }

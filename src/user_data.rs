@@ -2,7 +2,7 @@ use std::ops::Add;
 use alloy_primitives::{Address, U256, U8};
 use stylus_sdk::{block, stylus_proc::sol_storage};
 use crate::constants::{DIVISOR, HUNDRED, MAX_SUPPLY, TOTAL_SUPPLY, YEARS_IN_SECS};
-use crate::errors::{BitsaveErrors, GeneralError};
+use crate::errors::{BResult, BitsaveErrors, GeneralError, InvalidPrice, InvalidSaving};
 use crate::RResult;
 
 sol_storage! {
@@ -47,7 +47,6 @@ impl UserData {
     /// bitsave interest calculator:
     /// Uses bitsave formulae; to be integrated through the bitsave's token
     fn calculate_new_interest(
-        &self,
         amount: U256,
         end_time: U256,
         // internal data
@@ -66,7 +65,7 @@ impl UserData {
         let crp = ((total_supply - vault_state) / vault_state) * hundred;
         let bs_rate = max_supply / (crp * total_value_locked);
         let years_taken = (end_time - U256::from(block::timestamp())) / years_in_second;
-        ((amount * bs_rate * years_taken) / (hundred * divisor))
+        (amount * bs_rate * years_taken) / (hundred * divisor)
     }
 
     fn calculate_balance_from_penalty(amount: U256, penalty_perc: U8) -> U256 {
@@ -84,17 +83,17 @@ impl UserData {
         use_safe_mode: bool,
         vault_state: U256,
         total_value_locked: U256
-    ) -> RResult<()> {
+    ) -> BResult<()> {
         let fetched_saving = self.savings_map.get(name_of_saving.clone());
 
         // error if saving exists
         if fetched_saving.is_valid.get() {
-            return Err(BitsaveErrors::GeneralError(GeneralError {
-                msg: "Saving exists already".to_string()
-            }).into());
+            return Err(BitsaveErrors::InvalidSaving(
+                InvalidSaving {}
+            ));
         };
 
-        let new_interest = self.calculate_new_interest(
+        let new_interest = Self::calculate_new_interest(
             amount_of_saving,
             maturity_time,
             vault_state,
@@ -125,22 +124,26 @@ impl UserData {
         token_id: Address,
         vault_state: U256,
         total_value_locked: U256
-    ) -> Result<(), Vec<u8>> {
+    ) -> BResult<()> {
         let saving_data = self.savings_map.get(name_of_saving.clone());
         if !saving_data.is_valid.get() {
-            return Err(format!("Saving `{}` doesn't exist", name_of_saving).into());
+            return Err(
+                BitsaveErrors::InvalidSaving(InvalidSaving {})
+            );
         };
 
         if !saving_data.token_id.eq(&token_id) {
             // token not same with one being saved
-            return Err("Different token being saved, create new saving".into());
+            return Err(BitsaveErrors::InvalidPrice(
+                InvalidPrice {}
+            ));
         }
 
         let old_interest = saving_data.interest_accumulated.get();
         let old_amount = saving_data.amount.get();
 
         // saving is valid, increment the saving data
-        let new_interest = self.calculate_new_interest(
+        let new_interest = Self::calculate_new_interest(
             new_amount,
             saving_data.maturity_time.get(),
             vault_state,
@@ -160,10 +163,12 @@ impl UserData {
         Ok(())
     }
 
-    pub fn withdraw_saving_data(&mut self, name_of_saving: String) -> Result<U256, Vec<u8>> {
+    pub fn withdraw_saving_data(&mut self, name_of_saving: String) -> BResult<U256> {
         let saving_data = self.savings_map.get(name_of_saving.clone());
         if !saving_data.is_valid.get() {
-            return Err(format!("Saving `{}` doesn't exist", name_of_saving).into());
+            return Err(
+                BitsaveErrors::InvalidSaving(InvalidSaving {})
+            );
         }
 
         let mut withdraw_amount: U256 = U256::from(0);

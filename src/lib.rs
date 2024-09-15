@@ -16,11 +16,12 @@
 extern crate alloc;
 
 use crate::constants::{BS_SAVING_FEE, MIN_BS_JOIN_FEE};
+use crate::errors::BitsaveErrors::InvalidCall;
 use crate::errors::{
-    BResult, BitsaveErrors, GeneralError, InvalidPrice, NotSupported, UserNotExist,
+    BResult, BitsaveErrors, GeneralError, InvalidPrice, NotSupported, InvalidUser,
 };
-use alloy_primitives::{address, Address, U256};
-use stylus_sdk::call::{call, Call};
+use alloy_primitives::{Address, U256};
+use stylus_sdk::call::{call, transfer_eth, Call};
 /// Import items from the SDK. The prelude contains common traits and macros.
 use stylus_sdk::{msg, prelude::*};
 /// Import user library and other fns
@@ -73,10 +74,10 @@ sol_storage! {
 //     }
 // }
 
-/// Declare that `Counter` is a contract with the following external methods.
+/// Declare that `Bitsave` is a contract with the following external methods.
 #[public]
 impl Bitsave {
-    fn require_master(&self, sender: Address) -> Result<(), Vec<u8>> {
+    fn require_master(&self, sender: Address) -> RResult<()> {
         if sender != self.master_address.get() {
             return Err(BitsaveErrors::GeneralError(GeneralError {
                 msg: "Not authorized".to_string(),
@@ -115,10 +116,6 @@ impl Bitsave {
         self.vault_state.set(v_state);
         self.total_value_locked.set(total_locked);
     }
-    /// Metric data
-    pub fn get_bitsave_user_count(&self) -> U256 {
-        self.user_count.get()
-    }
 
     /// My gathered points
     pub fn get_user_points(&self) -> BResult<U256> {
@@ -131,10 +128,7 @@ impl Bitsave {
         // check user doesn't exist
         let fetched_user = self.users_mapping.get(msg::sender());
         if fetched_user.user_exists.get() {
-            return Err(BitsaveErrors::from(GeneralError {
-                msg: "User exists already!".to_string(),
-            })
-            .into());
+            return Err(BitsaveErrors::InvalidUser(InvalidUser {}).into())
         };
 
         // check for joining fee
@@ -165,11 +159,6 @@ impl Bitsave {
     ) -> RResult<()> {
         // retrieve some data
         // fetch user's data
-        let fetched_user = self.users_mapping.get(msg::sender());
-        if !fetched_user.user_exists.get() {
-            println!("User not found");
-            return Err(BitsaveErrors::UserNotExist(UserNotExist {}).into());
-        }
 
         let amount_received = msg::value();
         let saving_fee = U256::from(BS_SAVING_FEE);
@@ -177,10 +166,13 @@ impl Bitsave {
             return Err(BitsaveErrors::InvalidPrice(InvalidPrice {}).into());
         }
 
+        // Send fee to collector address
+        transfer_eth(self.collector_address.get(), saving_fee)?;
+
         let amount_of_saving = amount_received - saving_fee;
         // Update pool
 
-        let mut token_id = Address::ZERO; // todo: fix in token address
+        let token_id = Address::ZERO; // todo: fix in token address
 
         // TODO: add safe mode fn;
         if use_safe_mode {
@@ -189,7 +181,7 @@ impl Bitsave {
 
         // user setter
         let mut user_updater = self.users_mapping.setter(msg::sender());
-        let res = user_updater.create_saving_data(
+        user_updater.create_saving_data(
             name_of_saving,
             amount_of_saving,
             token_id,
@@ -198,11 +190,7 @@ impl Bitsave {
             use_safe_mode,
             self.vault_state.get(),
             self.total_value_locked.get(),
-        );
-
-        if let Err(res_err) = res {
-            return Err(res_err.into());
-        }
+        )?;
 
         Ok(())
     }
@@ -210,14 +198,7 @@ impl Bitsave {
     /// Increment saving
     pub fn increment_saving(&mut self, name_of_saving: String) -> Result<(), Vec<u8>> {
         // retrieve some data
-        // fetch user's data
-        let fetched_user = self.users_mapping.get(msg::sender());
-        if !fetched_user.user_exists.get() {
-            return Err(BitsaveErrors::GeneralError(GeneralError {
-                msg: "User doesn't exist".to_string(),
-            })
-            .into());
-        }
+        // fixme fetch user's data
 
         let amount_to_add = msg::value();
         let token_id = Address::ZERO; // todo: fix in token address
@@ -237,15 +218,9 @@ impl Bitsave {
     /// Withdraw savings
     pub fn withdraw_savings(&mut self, name_of_saving: String) -> Result<U256, Vec<u8>> {
         if msg::reentrant() {
-            return Err(BitsaveErrors::GeneralError(GeneralError {
-                msg: "Reentrant call not allowed!".to_string(),
-            })
-            .into());
-        }
-
-        let fetched_user = self.users_mapping.get(msg::sender());
-        if !fetched_user.user_exists.get() {
-            return Err("User doesn't exist".into());
+            return Err(
+                // Should be a general error but saving size
+                BitsaveErrors::NotSupported(NotSupported {}).into());
         }
 
         // user updater
